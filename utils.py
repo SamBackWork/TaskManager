@@ -5,19 +5,36 @@ import sys
 
 @dataclass
 class Task:
-    task_id: int
+    task_id: int = field(metadata={"title": "ID задачи"})
     title: str = field(metadata={"title": "Название задачи"})
     description: str = field(metadata={"title": "Описание задачи"})
     category: str = field(metadata={"title": "Категория задачи"})
     due_date: str = field(metadata={"title": "Срок выполнения"})
     priority: str = field(metadata={"title": "Приоритет"})
-    status: str = "Не выполнена"
+    status: str = field(metadata={"title": "Статус"}, default="Не выполнена")
 
 
 class TaskManager:
     def __init__(self, db_name='tasks.db'):
         self.db_name = db_name
         self._create_table()
+
+    def update_task(self, task_id: int, **kwargs):
+        with sqlite3.connect(self.db_name) as connection:
+            cursor = connection.cursor()
+            query_parts = []
+            values = []
+            for key, value in kwargs.items():
+                if key in Task.__annotations__ and key != 'task_id':  # Ensure the field is in Task and not the id field
+                    query_parts.append(f"{key} = ?")
+                    values.append(value)
+            if not query_parts:
+                raise ValueError("Нет полей для обновления")
+            query = f"UPDATE tasks SET {', '.join(query_parts)} WHERE id = ?"
+            values.append(task_id)
+            cursor.execute(query, values)
+            connection.commit()
+            print(f"Задача с ID {task_id} обновлена.")
 
     def _create_table(self):
         with sqlite3.connect(self.db_name) as connection:
@@ -49,9 +66,11 @@ class TaskManager:
     def delete_task(self, task_id: int):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
+            cursor.execute('SELECT title FROM tasks WHERE id = ?', (task_id,))
+            name = cursor.fetchone()[0]
             cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
             connection.commit()
-            print(f"Задача с ID {task_id} удалена")
+            print(f'Задача "{name}" с ID {task_id} удалена')
 
     def list_tasks(self):
         with sqlite3.connect(self.db_name) as connection:
@@ -64,7 +83,7 @@ class TaskManager:
 def create_task_from_input(task_manager: TaskManager) -> Task:
     task_data = {}
     for field_info in fields(Task):
-        if "title" in field_info.metadata:
+        if field_info.name not in ('task_id', 'status'):
             field_title = field_info.metadata["title"]
             user_input = input(f"Введите {field_title}: ")
             task_data[field_info.name] = user_input
@@ -76,7 +95,7 @@ def create_task_from_input(task_manager: TaskManager) -> Task:
 def print_tasks(task_manager: TaskManager):
     tasks = task_manager.list_tasks()
     for task in tasks:  # Перебираем все задачи полученные из базы данных
-        for field_info in fields(Task):  # Используем fields для получения заголовков
+        for field_info in fields(Task):
             field_title = field_info.metadata.get("title", field_info.name)
             field_value = getattr(task, field_info.name)  # Получаем значение поля
             print(f"{field_title}: {field_value}")
@@ -84,24 +103,24 @@ def print_tasks(task_manager: TaskManager):
 
 
 def exit_program():
+    print("Завершение программы")
     sys.exit(0)
 
 
-# Пример использования:
-if __name__ == '__main__':
-    task_manager = TaskManager()
-    # Добавление новой задачи
+def update_task_from_input(task_manager: TaskManager):
+    task_id = int(input("Введите ID задачи, которую хотите редактировать: "))
+    updates = {}
+    for field_info in fields(Task):
+        if field_info.name != 'task_id':  # Skip the task_id field
+            if input(f"Вы хотите изменить {field_info.metadata['title']}? (y/n) ").lower() == 'y':
+                new_value = input(f"Введите новое значение для {field_info.metadata['title']}: ")
+                updates[field_info.name] = new_value
+    if updates:
+        task_manager.update_task(task_id, **updates)
+    else:
+        print("Изменения не внесены.")
 
-    print_tasks(task_manager)
-    new_task = create_task_from_input(task_manager)
-    print(f"Задача добавлена с ID {new_task.task_id}")
 
-    # Вывод списка всех задач
-    tasks = task_manager.list_tasks()
-    print("Список всех задач:")
-    print_tasks(task_manager)
-
-    # Удаление задачи
-    delete_id = int(input("Введите ID задачи для удаления: "))
-    task_manager.delete_task(delete_id)
-    print(f"Задача с ID {delete_id} удалена")
+def read_file(file_path):  # Чтение файла
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return f.read()
