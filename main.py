@@ -1,14 +1,16 @@
-from utils import *
+from utils import TaskManager
+from commands import *
 
 
 def main():
     my_task_manager = TaskManager()
     instructions = {
         'add': lambda: create_task_from_input(my_task_manager),
-        'del': lambda: my_task_manager.delete_task(int(input("Введите ID задачи для удаления: "))),
+        'del': lambda: delete_task(my_task_manager),
         'list': lambda: print_tasks(my_task_manager),
         'update': lambda: update_task_from_input(my_task_manager),
         'help': lambda: print(read_file('help_text')),
+        'done': lambda: done_task(my_task_manager),
         'exit': lambda: exit_program(),
     }
     print(read_file('help_text'))

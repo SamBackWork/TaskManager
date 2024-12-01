@@ -1,6 +1,40 @@
 import sqlite3
-from dataclasses import dataclass, field, fields
-import sys
+from dataclasses import dataclass, field
+import functools
+
+
+def sync_with_backup_db(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Вызов оригинальной функции
+        result = func(self, *args, **kwargs)
+
+        # Подключение к резервной базе данных и дублирование изменений
+        backup_db_name = 'backup_tasks.db'
+        with sqlite3.connect(backup_db_name) as backup_connection:
+            backup_cursor = backup_connection.cursor()
+
+            # Предполагаем, что структура таблицы точно такая же
+            if func.__name__ == 'add_task':
+                task = args[0]
+                backup_cursor.execute('''
+                    INSERT INTO tasks (title, description, category, due_date, priority, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (task.title, task.description, task.category, task.due_date, task.priority, task.status))
+            elif func.__name__ == 'delete_task':
+                task_id = args[0]
+                backup_cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+            elif func.__name__ == 'update_task':
+                task_id = args[0]
+                values = args[1:]
+                update_values = ', '.join([f"{k} = '{v}'" for k, v in kwargs.items() if k != 'task_id'])
+                backup_cursor.execute(f'UPDATE tasks SET {update_values} WHERE id = ?', (task_id,))
+
+            backup_connection.commit()
+
+        return result
+
+    return wrapper
 
 
 @dataclass
@@ -22,10 +56,12 @@ class TaskManager:
     def update_task(self, task_id: int, **kwargs):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
+            cursor.execute('SELECT title FROM tasks WHERE id = ?', (task_id,))
+            name = cursor.fetchone()[0]
             query_parts = []
             values = []
             for key, value in kwargs.items():
-                if key in Task.__annotations__ and key != 'task_id':  # Ensure the field is in Task and not the id field
+                if key in Task.__annotations__ and key != 'task_id':
                     query_parts.append(f"{key} = ?")
                     values.append(value)
             if not query_parts:
@@ -34,7 +70,7 @@ class TaskManager:
             values.append(task_id)
             cursor.execute(query, values)
             connection.commit()
-            print(f"Задача с ID {task_id} обновлена.")
+            print(f'Задача "{name}" с ID {task_id} обновлена.')
 
     def _create_table(self):
         with sqlite3.connect(self.db_name) as connection:
@@ -79,48 +115,46 @@ class TaskManager:
             tasks = cursor.fetchall()
             return [Task(*row) for row in tasks]
 
+    def search_tasks(self, keyword=None, category=None, status=None):
+        with sqlite3.connect(self.db_name) as connection:
+            cursor = connection.cursor()
 
-def create_task_from_input(task_manager: TaskManager) -> Task:
-    task_data = {}
-    for field_info in fields(Task):
-        if field_info.name not in ('task_id', 'status'):
-            field_title = field_info.metadata["title"]
-            user_input = input(f"Введите {field_title}: ")
-            task_data[field_info.name] = user_input
+            # Начальное условие
+            query_parts = []
+            params = []
 
-    task = Task(task_id=0, **task_data)
-    return task_manager.add_task(task)
+            # Общий поиск по всем полям
+            if keyword:
+                query_parts.append(
+                    '((title) LIKE (?) OR (description) LIKE (?) OR (category) LIKE (?) OR (status) LIKE (?))')
+                keyword_pattern = f'%{keyword}%'
+                params.extend([keyword_pattern] * 4)  # Добавляем 4 раза для всех полей
 
+            # Фильтр по категории
+            if category:
+                query_parts.append('(category) = (?)')
+                params.append(category)
 
-def print_tasks(task_manager: TaskManager):
-    tasks = task_manager.list_tasks()
-    for task in tasks:  # Перебираем все задачи полученные из базы данных
-        for field_info in fields(Task):
-            field_title = field_info.metadata.get("title", field_info.name)
-            field_value = getattr(task, field_info.name)  # Получаем значение поля
-            print(f"{field_title}: {field_value}")
-        print("-" * 40)  # Для визуального разделения задач
+            # Фильтр по статусу
+            if status:
+                query_parts.append('(status) = (?)')
+                params.append(status)
 
+            # Соединяем запрос
+            query = 'SELECT * FROM tasks'  # Начинаем с выбора из таблицы
+            if query_parts:
+                query += ' WHERE ' + ' AND '.join(query_parts)  # Если есть условия, добавляем WHERE
 
-def exit_program():
-    print("Завершение программы")
-    sys.exit(0)
+            cursor.execute(query, params)
+            result_rows = cursor.fetchall()
 
-
-def update_task_from_input(task_manager: TaskManager):
-    task_id = int(input("Введите ID задачи, которую хотите редактировать: "))
-    updates = {}
-    for field_info in fields(Task):
-        if field_info.name != 'task_id':  # Skip the task_id field
-            if input(f"Вы хотите изменить {field_info.metadata['title']}? (y/n) ").lower() == 'y':
-                new_value = input(f"Введите новое значение для {field_info.metadata['title']}: ")
-                updates[field_info.name] = new_value
-    if updates:
-        task_manager.update_task(task_id, **updates)
-    else:
-        print("Изменения не внесены.")
+            return [Task(*row) for row in result_rows]
 
 
-def read_file(file_path):  # Чтение файла
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+if __name__ == '__main__':
+    task_manager = TaskManager()
+    from commands import print_tasks
+
+    search_tasks = task_manager.search_tasks(status='выполнена')
+    print(f"Найдено задач: {len(search_tasks)}")
+    print_tasks(search_tasks)
