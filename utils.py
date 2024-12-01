@@ -3,21 +3,16 @@ from dataclasses import dataclass, field
 import functools
 
 
-def sync_with_instance(backup_instance):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            result = func(self, *args, **kwargs)
-            print(f"Called {func.__name__} on main instance")
-            if hasattr(backup_instance, func.__name__):
-                backup_method = getattr(backup_instance, func.__name__)
-                backup_method(*args, **kwargs)
-                print(f"Called {func.__name__} on backup instance")
-            return result
+def sync_with_search_db(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        db_search_name = "search_tasks.db"
+        func(self, *args, **kwargs)
+        self.db_name = db_search_name
+        func(self, *args, **kwargs)
+        self.db_name = "tasks.db"
 
-        return wrapper
-
-    return decorator
+    return wrapper
 
 
 @dataclass
@@ -46,7 +41,7 @@ class TaskManager:
         else:
             print("Backup instance already initialized.")
 
-    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
+    @sync_with_search_db
     def _create_table(self):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -61,7 +56,7 @@ class TaskManager:
             )''')
             connection.commit()
 
-    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
+    @sync_with_search_db
     def add_task(self, task: Task):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -72,7 +67,7 @@ class TaskManager:
             task.task_id = cursor.lastrowid
             return task
 
-    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
+    @sync_with_search_db
     def delete_task(self, task_id: int):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -82,7 +77,7 @@ class TaskManager:
             connection.commit()
             print(f'Задача "{name}" с ID {task_id} удалена')
 
-    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
+    @sync_with_search_db
     def list_tasks(self):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -90,7 +85,7 @@ class TaskManager:
             tasks = cursor.fetchall()
             return [Task(*row) for row in tasks]
 
-    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
+    @sync_with_search_db
     def search_tasks(self, keyword=None, category=None, status=None):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -147,8 +142,7 @@ if __name__ == '__main__':
     task_manager = TaskManager()
     task_manager.initialize_backup()  # Инициализируем резервный экземпляр
     from commands import print_tasks
+
     for task in tasks:
         task_manager.add_task(task)
-    search_tasks = task_manager.search_tasks(status='Не выполнена')
-    print(f"Найдено задач: {len(search_tasks)}")
-    print_tasks(search_tasks)
+
