@@ -3,38 +3,21 @@ from dataclasses import dataclass, field
 import functools
 
 
-def sync_with_backup_db(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        # Вызов оригинальной функции
-        result = func(self, *args, **kwargs)
+def sync_with_instance(backup_instance):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            result = func(self, *args, **kwargs)
+            print(f"Called {func.__name__} on main instance")
+            if hasattr(backup_instance, func.__name__):
+                backup_method = getattr(backup_instance, func.__name__)
+                backup_method(*args, **kwargs)
+                print(f"Called {func.__name__} on backup instance")
+            return result
 
-        # Подключение к резервной базе данных и дублирование изменений
-        backup_db_name = 'backup_tasks.db'
-        with sqlite3.connect(backup_db_name) as backup_connection:
-            backup_cursor = backup_connection.cursor()
+        return wrapper
 
-            # Предполагаем, что структура таблицы точно такая же
-            if func.__name__ == 'add_task':
-                task = args[0]
-                backup_cursor.execute('''
-                    INSERT INTO tasks (title, description, category, due_date, priority, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (task.title, task.description, task.category, task.due_date, task.priority, task.status))
-            elif func.__name__ == 'delete_task':
-                task_id = args[0]
-                backup_cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-            elif func.__name__ == 'update_task':
-                task_id = args[0]
-                values = args[1:]
-                update_values = ', '.join([f"{k} = '{v}'" for k, v in kwargs.items() if k != 'task_id'])
-                backup_cursor.execute(f'UPDATE tasks SET {update_values} WHERE id = ?', (task_id,))
-
-            backup_connection.commit()
-
-        return result
-
-    return wrapper
+    return decorator
 
 
 @dataclass
@@ -49,34 +32,25 @@ class Task:
 
 
 class TaskManager:
+    backup_instance = None  # Статический атрибут для резервного менеджера
+
     def __init__(self, db_name='tasks.db'):
         self.db_name = db_name
         self._create_table()
 
-    def update_task(self, task_id: int, **kwargs):
-        with sqlite3.connect(self.db_name) as connection:
-            cursor = connection.cursor()
-            cursor.execute('SELECT title FROM tasks WHERE id = ?', (task_id,))
-            name = cursor.fetchone()[0]
-            query_parts = []
-            values = []
-            for key, value in kwargs.items():
-                if key in Task.__annotations__ and key != 'task_id':
-                    query_parts.append(f"{key} = ?")
-                    values.append(value)
-            if not query_parts:
-                raise ValueError("Нет полей для обновления")
-            query = f"UPDATE tasks SET {', '.join(query_parts)} WHERE id = ?"
-            values.append(task_id)
-            cursor.execute(query, values)
-            connection.commit()
-            print(f'Задача "{name}" с ID {task_id} обновлена.')
+    @classmethod
+    def initialize_backup(cls, backup_db_name='backup_tasks.db'):
+        if cls.backup_instance is None:
+            cls.backup_instance = TaskManager(backup_db_name)
+            print("Backup instance initialized with database:", backup_db_name)
+        else:
+            print("Backup instance already initialized.")
 
+    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
     def _create_table(self):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tasks (
+            cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
@@ -84,21 +58,21 @@ class TaskManager:
                 due_date TEXT NOT NULL,
                 priority TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'Не выполнена'
-            )
-            ''')
+            )''')
             connection.commit()
 
+    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
     def add_task(self, task: Task):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
-            cursor.execute('''
-            INSERT INTO tasks (title, description, category, due_date, priority, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (task.title, task.description, task.category, task.due_date, task.priority, task.status))
+            cursor.execute('''INSERT INTO tasks (title, description, category, due_date, priority, status)
+                              VALUES (?, ?, ?, ?, ?, ?)''',
+                           (task.title, task.description, task.category, task.due_date, task.priority, task.status))
             connection.commit()
             task.task_id = cursor.lastrowid
             return task
 
+    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
     def delete_task(self, task_id: int):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -108,6 +82,7 @@ class TaskManager:
             connection.commit()
             print(f'Задача "{name}" с ID {task_id} удалена')
 
+    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
     def list_tasks(self):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -115,6 +90,7 @@ class TaskManager:
             tasks = cursor.fetchall()
             return [Task(*row) for row in tasks]
 
+    @sync_with_instance(lambda: TaskManager('backup_tasks.db'))
     def search_tasks(self, keyword=None, category=None, status=None):
         with sqlite3.connect(self.db_name) as connection:
             cursor = connection.cursor()
@@ -151,10 +127,28 @@ class TaskManager:
             return [Task(*row) for row in result_rows]
 
 
+tasks = [
+    Task(task_id=1, title="Написать отчет", description="Написать отчет по проекту до конца недели.",
+         category="Работа", due_date="2023-10-15", priority="Высокий", status="Не выполнена"),
+
+    Task(task_id=2, title="Купить продукты", description="Купить хлеб, молоко, яйца и фрукты.",
+         category="Личные дела", due_date="2023-10-10", priority="Средний", status="Не выполнена"),
+
+    Task(task_id=3, title="Сделать зарядку", description="Уделить 30 минут на утреннюю зарядку.",
+         category="Здоровье", due_date="2023-10-08", priority="Низкий", status="Не выполнена"),
+
+    Task(task_id=4, title="Подготовить презентацию", description="Подготовить презентацию для встреч.",
+         category="Работа", due_date="2023-10-12", priority="Высокий", status="Не выполнена"),
+
+    Task(task_id=5, title="Прочитать книгу", description="Прочитать 50 страниц книги для личного развития.",
+         category="Образование", due_date="2023-10-20", priority="Низкий", status="Не выполнена"),
+]
 if __name__ == '__main__':
     task_manager = TaskManager()
+    task_manager.initialize_backup()  # Инициализируем резервный экземпляр
     from commands import print_tasks
-
-    search_tasks = task_manager.search_tasks(status='выполнена')
+    for task in tasks:
+        task_manager.add_task(task)
+    search_tasks = task_manager.search_tasks(status='Не выполнена')
     print(f"Найдено задач: {len(search_tasks)}")
     print_tasks(search_tasks)
