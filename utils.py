@@ -9,6 +9,11 @@ def sync_with_search_db(func):
         db_search_name = "search_tasks.db"
         func(self, *args, **kwargs)
         self.db_name = db_search_name
+        for arg in args:
+            if isinstance(arg, Task):
+                for fild, value in arg.__dict__.items():
+                    if isinstance(value, str):
+                        setattr(arg, fild, value.lower())
         func(self, *args, **kwargs)
         self.db_name = "tasks.db"
 
@@ -32,14 +37,6 @@ class TaskManager:
     def __init__(self, db_name='tasks.db'):
         self.db_name = db_name
         self._create_table()
-
-    @classmethod
-    def initialize_backup(cls, backup_db_name='backup_tasks.db'):
-        if cls.backup_instance is None:
-            cls.backup_instance = TaskManager(backup_db_name)
-            print("Backup instance initialized with database:", backup_db_name)
-        else:
-            print("Backup instance already initialized.")
 
     @sync_with_search_db
     def _create_table(self):
