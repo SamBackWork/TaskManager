@@ -1,24 +1,25 @@
+from commands import Commands as co, read_file
 from utils import TaskManager
-from commands import *
 
 
 def main():
     my_task_manager = TaskManager()
-    instructions = {
-        'add': lambda: create_task_from_input(my_task_manager),
-        'del': lambda: delete_task(my_task_manager),
-        'list': lambda: print_tasks(my_task_manager),
-        'update': lambda: update_task_from_input(my_task_manager),
+    commands = {
+        'add': lambda: co.create_task_from_input(my_task_manager),
+        'del': lambda: co.delete_task(my_task_manager),
+        'list': lambda: co.print_tasks(my_task_manager),
+        'update': lambda: co.update_task_from_input(my_task_manager),
         'help': lambda: print(read_file('help_text')),
-        'done': lambda: done_task(my_task_manager),
-        'exit': lambda: exit_program(),
+        'done': lambda: co.done_task(my_task_manager),
+        'find': lambda: co.search_task(my_task_manager),
+        'exit': lambda: co.exit_program(),
     }
     print(read_file('help_text'))
     while True:
         try:
             action = input(">> ")
-            if action in instructions:
-                instructions[action]()
+            if action in commands:
+                commands[action]()
             else:
                 print("Неизвестная команда, попробуйте еще раз.")
         except Exception as e:
