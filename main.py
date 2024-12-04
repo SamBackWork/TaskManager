@@ -1,18 +1,17 @@
 from commands import Commands as co, read_file
-from utils import TaskManager
 
 
 def main():
-    my_task_manager = TaskManager()
     commands = {
-        'add': lambda: co.create_task_from_input(my_task_manager),
-        'del': lambda: co.delete_task(my_task_manager),
-        'list': lambda: co.print_tasks(my_task_manager),
-        'update': lambda: co.update_task_from_input(my_task_manager),
+        'add': lambda: co.create_task_from_input(),
+        'del': lambda: co.delete_task(),
+        'list': lambda: co.print_tasks(),
+        'update': lambda: co.update_task_from_input(),
         'help': lambda: print(read_file('help_text')),
-        'done': lambda: co.done_task(my_task_manager),
-        'find': lambda: co.search_task(my_task_manager),
+        'done': lambda: co.done_task(),
+        'find': lambda: co.search_task(),
         'exit': lambda: co.exit_program(),
+        'res': lambda: co.restart_program()
     }
     print(read_file('help_text'))
     while True:

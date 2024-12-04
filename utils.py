@@ -1,90 +1,115 @@
 import sqlite3
-from search import sync_with_search_db, Task, SearchMixin
+
+from search import sync_with_search_db, Task
 
 
-class TaskManager(SearchMixin):
+class TaskManager:
+    """ Класс для управления задачами. """
+
     def __init__(self, db_name='tasks.db'):
         super().__init__()
         self.db_name = db_name
         self._create_table()
 
+    def execute_query(self, query, params=(), fetchone=False, commit=False):
+        """Упрощает выполнение запросов к базе данных."""
+        with sqlite3.connect(self.db_name) as connection:  # Подключение к поисковой базе данных
+            cursor = connection.cursor()  # Создание курсора
+            cursor.execute(query, params)  # Выполнение запроса
+            if commit:  # Если нужно выполнить коммит
+                connection.commit()  # Выполнение коммита
+            return cursor.fetchone() if fetchone else cursor.fetchall()  # Возврат результата
+
+    def get_task(self, task_id=None):
+        """Получает одну или несколько задач из базы данных по заданным ID или все задачи, если ID не указаны."""
+        if task_id is None:  # Возвращаем все задачи.
+            tasks = self.execute_query('SELECT * FROM tasks')
+            return [Task(*row) for row in tasks]
+        elif isinstance(task_id, list):  # Возвращаем задачи для списка ID.
+            result_tasks = []
+            for id in task_id:
+                task_row = self.execute_query('SELECT * FROM tasks WHERE id = ?', (id,), fetchone=True)
+                if task_row:
+                    result_tasks.append(Task(*task_row))
+            return result_tasks
+        else:  # Возвращаем задачу для одного ID.
+            task_row = self.execute_query('SELECT * FROM tasks WHERE id = ?', (task_id,), fetchone=True)
+            if not task_row:
+                print(f'Задача с ID {task_id} не найдена')
+                return None
+            return Task(*task_row)
+
     @sync_with_search_db
     def update_task(self, task_id: int, **kwargs):
-        with sqlite3.connect(self.db_name) as connection:
-            cursor = connection.cursor()
-            cursor.execute('SELECT * FROM tasks WHERE id = ?', (task_id,))
-            task = Task(*cursor.fetchone())
-            for field, value in kwargs.items():
-                setattr(task, field, value)
-            cursor.execute(
-                'UPDATE tasks SET title = ?, description = ?, category = ?, due_date = ?, priority = ?, status = ? WHERE id = ?',
-                (task.title, task.description, task.category, task.due_date, task.priority, task.status, task_id))
-            connection.commit()
-            return task
+        """Обновляет задачу в базе данных на основе переданных ключевых слов аргументов."""
+        task = self.get_task(task_id)
+        if not task:
+            return None
+        # Формируем части SQL-запроса для обновления и значения параметров
+        sql_sets = ", ".join([f"{key} = ?" for key in kwargs.keys()])
+        values = list(kwargs.values())
+        values.append(task_id)
+        # Выполнение запроса обновления
+        self.execute_query(f"UPDATE tasks SET {sql_sets} WHERE id = ?", values)
+        print("Задача обновлена.")
+        return self.get_task(task_id)  # Возвращаем обновленное состояние задачи
 
     @sync_with_search_db
     def _create_table(self):
-        with sqlite3.connect(self.db_name) as connection:
-            cursor = connection.cursor()
-            cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                category TEXT NOT NULL,
-                due_date TEXT NOT NULL,
-                priority TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Не выполнена'
-            )''')
-            connection.commit()
+        """Создает таблицу задач, если она еще не существует."""
+        query = '''CREATE TABLE IF NOT EXISTS tasks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        due_date TEXT NOT NULL,
+                        priority TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'Не выполнена'
+                    )'''
+        self.execute_query(query, commit=True)
 
     @sync_with_search_db
     def add_task(self, task: Task):
-        with sqlite3.connect(self.db_name) as connection:
-            cursor = connection.cursor()
-            cursor.execute('''INSERT INTO tasks (title, description, category, due_date, priority, status)
-                              VALUES (?, ?, ?, ?, ?, ?)''',
-                           (task.title, task.description, task.category, task.due_date, task.priority, task.status))
-            connection.commit()
-            task.task_id = cursor.lastrowid
-            return task
+        """Добавляет новую задачу в базу данных и возвращает задачу с присвоенным ID."""
+        query = '''INSERT INTO tasks (title, description, category, due_date, priority, status)
+                   VALUES (?, ?, ?, ?, ?, ?)'''
+        params = (task.title, task.description, task.category, task.due_date, task.priority, task.status)
+        task_id = self.execute_query(query, params, commit=True)
+        task.task_id = task_id
+        return task
 
     @sync_with_search_db
     def delete_task(self, task_id: int):
-        with sqlite3.connect(self.db_name) as connection:
-            cursor = connection.cursor()
-            cursor.execute('SELECT title FROM tasks WHERE id = ?', (task_id,))
-            name = cursor.fetchone()[0]
-            cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-            connection.commit()
-            print(f'Задача "{name}" с ID {task_id} удалена')
+        """Удаляет задачу из базы данных по-заданному ID."""
+        name_query = 'SELECT title FROM tasks WHERE id = ?'  # Получить имя задачи для печати информации
+        name = self.execute_query(name_query, (task_id,), fetchone=True)
+        task_name = name[0] if name else 'Неизвестная задача'
+        delete_query = 'DELETE FROM tasks WHERE id = ?'
+        self.execute_query(delete_query, (task_id,), commit=True)  # Выполнить запрос на удаление задачи
+        if self.db_name == "tasks.db":
+            print(f'Задача "{task_name}" с ID {task_id} удалена')  # Вывести информацию о результате
 
-    def list_tasks(self, task_id: int | list[int] | None = None) -> list[Task] | list:
-        """
-        Эта функция возвращает полный список задач из базы данных если не указан task_id
-        Если task_id указан, то возвращает список задач по id
-        :param task_id: id задачи или список id задач
-        :return: список задач или
-        """
-        with sqlite3.connect(self.db_name) as connection:  # Используем контекст менеджера
-            result_list_tasks = []  # Создаем пустой список
-            if task_id is None:  # Если task_id не указан
-                cursor = connection.cursor()  # Создаем курсор базы данных для выполнения запроса
-                cursor.execute('SELECT * FROM tasks')  # Выполняем запрос
-                tasks = cursor.fetchall()  # Получаем все строки результата запроса
-                return [Task(*row) for row in tasks]  # Возвращаем список задач
-            if isinstance(task_id, list):  # Если task_id указан
-                for id in task_id:  # Проходим по каждому id
-                    cursor = connection.cursor()  # Создаем курсор базы данных для выполнения запроса
-                    cursor.execute('SELECT * FROM tasks WHERE id = ?', (id,))  # Выполняем запрос
-                    row = cursor.fetchone()  # Получаем одну строку результата запроса и сохраняем в переменную
-                    if row:  # Если строка не пустая
-                        result_list_tasks.append(Task(*row))  # Добавляем строку в список
-                return result_list_tasks  # Возвращаем список
-            else:
-                cursor = connection.cursor()  # Создаем курсор базы данных для выполнения запроса
-                cursor.execute('SELECT * FROM tasks WHERE id = ?', (task_id,))  # Выполняем запрос
-                tasks = cursor.fetchall()  # Получаем все строки результата запроса
-                return [Task(*row) for row in tasks]  # Возвращаем список задач
+    def search_tasks(self, keyword=None, category=None, status=None):
+        """Поиск задач в поисковой базе данных."""
+        if self.db_name == "search_tasks.db":
+            query_parts = []  # Список частей запроса
+            params = []  # Список параметров
+            if keyword:  # Если задано ключевое слово
+                keyword_pattern = f'%{keyword.lower()}%'  # Создание паттерна для поиска
+                query_parts.append('(title LIKE ? OR description LIKE ? OR category LIKE ? OR status LIKE ?)')
+                params.extend([keyword_pattern] * 4)  # Добавление pattern для каждого поля
+            if category:  # Если задана категория
+                query_parts.append('category = ?')  # Добавление части запроса
+                params.append(category.lower())  # Добавление параметра в нижнем регистре
+            if status:  # Если задан статус
+                query_parts.append('status = ?')  # Добавление части запроса
+                params.append(status.lower())  # Добавление параметра в нижнем регистре
+            query = 'SELECT id FROM tasks'
+            if query_parts:  # Если есть части запроса
+                query += ' WHERE ' + ' AND '.join(query_parts)  # Добавление части запроса
+            result_rows = self.execute_query(query, params)  # Вызов метода execute_query для выполнения запроса
+            print(f" Найдено {len(result_rows)} задач: ")  # Вывод количества найденных задач
+            return [row[0] for row in result_rows]  # Возврат списка ID найденных задач
 
 
 tasks = [

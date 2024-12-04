@@ -15,56 +15,20 @@ class Task:
 
 
 def sync_with_search_db(func):
+    """Декоратор для синхронизации баз данных."""
+
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        db_search_name = "search_tasks.db"
-        func(self, *args, **kwargs)
-        self.db_name = db_search_name
-        for arg in args:
-            if isinstance(arg, Task):
-                for fild, value in arg.__dict__.items():
-                    if isinstance(value, str):
-                        setattr(arg, fild, value.lower())
+        db_search_name = "search_tasks.db"  # Имя базы данных для поисковых запросов
+        func(self, *args, **kwargs)  # Вызов оригинальной функции
+        self.db_name = db_search_name  # Переключение на поисковую базу данных
+        for arg in args:  # Перебор всех аргументов для приведения к нижнему регистру
+            if isinstance(arg, Task):  # Проверка, является ли аргумент экземпляром Task
+                for fild, value in arg.__dict__.items():  # Перебор всех атрибутов
+                    if isinstance(value, str):  # Проверка, является ли значение строкой
+                        setattr(arg, fild, value.lower())  # Приведение к нижнему регистру
         kwargs = {key.lower(): value.lower() if isinstance(value, str) else value for key, value in kwargs.items()}
-        func(self, *args, **kwargs)
-        self.db_name = "tasks.db"
+        func(self, *args, **kwargs)  # Вызов оригинальной функции с новыми аргументами и ключевыми словами
+        self.db_name = "tasks.db"  # Переключение обратно на основную базу данных
 
     return wrapper
-
-
-class SearchMixin:
-    def __init__(self, db_search_name='search_tasks.db'):
-        self.db_search_name = db_search_name
-
-    def search_tasks(self, keyword=None, category=None, status=None):
-        with sqlite3.connect(self.db_search_name) as connection:
-            cursor = connection.cursor()
-            query_parts = []
-            params = []
-
-            if keyword:
-                keyword_pattern = f'%{keyword.lower()}%'
-                query_parts.append(f'(title LIKE ? OR description LIKE ? OR category LIKE ? OR status LIKE ?)')
-                params.extend([keyword_pattern] * 4)  # Добавление pattern для каждого поля
-
-            if category:
-                query_parts.append('category = ?')
-                params.append(category.lower())
-
-            if status:
-                query_parts.append('status = ?')
-                params.append(status.lower())
-
-            query = 'SELECT id FROM tasks'
-            if query_parts:
-                query += ' WHERE ' + ' AND '.join(query_parts)
-
-            cursor.execute(query, params)
-            result_rows = cursor.fetchall()
-            print(f" Найдено {len(result_rows)} задач: ")
-            return [row[0] for row in result_rows]
-
-
-if __name__ == '__main__':
-    my_search = SearchMixin()
-    print(my_search.search_tasks(status='Выполнена'))
