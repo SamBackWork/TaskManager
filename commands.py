@@ -1,7 +1,7 @@
 import os
 import sys
 from dataclasses import fields
-from utils import TaskManager, Task
+from task_manager import TaskManager, Task
 
 task_manager = TaskManager()
 
@@ -9,7 +9,7 @@ task_manager = TaskManager()
 class Commands:
     """Класс для работы с командами."""
 
-    # TODO сделать обработку ошибок при вводе некорректных данных датa
+    # TODO сделать обработку ошибок при вводе некорректных данных даты и любого пустого поля
     @staticmethod
     def create_task_from_input() -> Task:
         """Создает новую задачу из ввода пользователя."""
@@ -17,10 +17,12 @@ class Commands:
         for field_info in fields(Task):  # Получение информации о каждом поле
             if field_info.name not in ('task_id', 'status'):  # task_id и status не требуют ввода
                 field_title = field_info.metadata["title"]  # Получение названия поля из метаданных на русском
-                user_input = input(f"Введите {field_title}: ")  # Ввод значения поля
+                user_input = input(f'Заполните поле "{field_title}": ')  # Ввод значения поля
                 task_data[field_info.name] = user_input  # Добавление значения поля в словарь
         task = Task(task_id=0, **task_data)  # id=0 чтобы в определении класса Task сохранялась последовательность полей
-        return task_manager.add_task(task)
+        print("Создана новая задача:")
+        print(f"ID: {task_manager.add_task(task)}")
+        # Commands.print_tasks(task_id)
 
     @staticmethod
     def print_tasks(task_id=None):
@@ -51,8 +53,6 @@ class Commands:
         print("Завершение программы")
         sys.exit(0)
 
-    # TODO доработать функцию update_task_from_input, чтобы выводились только мета данные полей
-    # TODO сделать обработку ошибок при любом вводе при выборе поля редактирования (когда вводишь не цифру и не 'q')
     @staticmethod
     def update_task_from_input():
         """Обновляет задачу в базе данных на основе переданных ключевых слов аргументов."""
@@ -76,12 +76,14 @@ class Commands:
                     continue
             if int(choice) in fields_dict:
                 field_info = fields_dict[int(choice)]
-                new_value = input(f"Введите новое значение для {field_info.metadata.get('title', field_info.name)}: ")
+                new_value = input(
+                    f'Введите новое значение для поля "{field_info.metadata.get('title', field_info.name)}": ')
                 updates[field_info.name] = new_value
             else:
                 print("Неверный выбор, попробуйте снова.")
         if updates:
             task_manager.update_task(task_id, **updates)
+            print("Задача обновлена.")
         else:
             print("Изменений не внесено.")
         Commands.print_tasks(task_id)  # Вывод обновленной задачи
@@ -120,11 +122,7 @@ class Commands:
         print("Перезапуск программы...")
         os.execv(sys.executable, ['python'] + sys.argv)
 
-
-def read_file(file_path):  # Чтение файла
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
-
-
-if __name__ == '__main__':
-    Commands.print_tasks(1)
+    @staticmethod
+    def read_file(file_path):  # Чтение файла
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
