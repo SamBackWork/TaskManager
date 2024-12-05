@@ -30,6 +30,7 @@ class TaskManager(BaseManager):
         task_id = self.execute_query(query, params, commit=True)
         return task_id
 
+    @sync_with_search_db
     def search_tasks(self, keyword=None, category=None, status=None):
         """Поиск задач в поисковой базе данных."""
         if self.db_name == "search_tasks.db":
