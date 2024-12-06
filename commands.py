@@ -20,9 +20,9 @@ class Commands:
                 user_input = input(f'Заполните поле "{field_title}": ')  # Ввод значения поля
                 task_data[field_info.name] = user_input  # Добавление значения поля в словарь
         task = Task(task_id=0, **task_data)  # id=0 чтобы в определении класса Task сохранялась последовательность полей
-        print("Создана новая задача:")
-        print(f"ID: {task_manager.add_task(task)}")
-        # Commands.print_tasks(task_id)
+        print("Создана новая задача!", "-" * 40, sep="\n")
+        task_id = task_manager.add_task(task)
+        Commands.print_tasks(task_id)
 
     @staticmethod
     def print_tasks(task_id=None):
@@ -65,8 +65,8 @@ class Commands:
         for index, field_info in fields_dict.items():
             print(f"{index}. {field_info.metadata.get('title', field_info.name)}: ( {getattr(task, field_info.name)} )")
         while True:
-            choice = input("Введите номер поля для изменения или 'q' для выхода: ")
-            if choice.lower() == 'q':
+            choice = input("Введите номер поля для изменения или 'q' иди 'й' для выхода: ")
+            if choice.lower() in 'qй':
                 break
             else:
                 try:
@@ -83,9 +83,9 @@ class Commands:
                 print("Неверный выбор, попробуйте снова.")
         if updates:
             task_manager.update_task(task_id, **updates)
-            print("Задача обновлена.")
+            print("Задача обновлена!", "-" * 40, sep="\n")
         else:
-            print("Изменений не внесено.")
+            print("Изменений не внесено!", "-" * 40, sep="\n")
         Commands.print_tasks(task_id)  # Вывод обновленной задачи
 
     @staticmethod
@@ -110,7 +110,7 @@ class Commands:
         if not keyword and not category and not status:
             print("Вы не ввели ни одного параметра для поиска.")
         else:
-            return task_manager.search_tasks(keyword, category, status)
+            return print(task_manager.search_tasks(keyword, category, status))
 
     @staticmethod
     def search_task():

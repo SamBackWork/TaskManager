@@ -20,7 +20,7 @@ def main():
             if action in commands:
                 commands[action]()
             else:
-                print("Неизвестная команда, попробуйте еще раз.")
+                print("Неизвестная команда, попробуйте еще раз.\nhelp - список доступных команд.")
         except Exception as e:
             print(f"Произошла ошибка: {e}")
 
