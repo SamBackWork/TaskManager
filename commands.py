@@ -25,10 +25,10 @@ class Commands:
         Commands.print_tasks(task_id)
 
     @staticmethod
-    def print_tasks(task_id=None):
+    def print_tasks(task_id: int | list | None = None):
         """Выводит информацию о задачах вместе с полями из метаданных."""
         if task_id:
-            tasks = [task_manager.get_task(task_id)]
+            tasks = task_manager.get_task(task_id)
         else:
             tasks = task_manager.get_task()
         for task in tasks:
@@ -126,3 +126,7 @@ class Commands:
     def read_file(file_path):  # Чтение файла
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
+
+
+if __name__ == '__main__':
+    Commands().print_tasks([5, 7, 12, 15, 18, 20])

@@ -17,9 +17,11 @@ def sync_with_search_db(func):
                     if isinstance(value, str):  # Проверка, является ли значение строкой
                         setattr(arg, fild, value.lower())  # Приведение к нижнему регистру
         kwargs = {key.lower(): value.lower() if isinstance(value, str) else value for key, value in kwargs.items()}
-        search_result = func(self, *args, **kwargs)  # Вызов оригинальной функции с новыми аргументами и ключевыми словами
+        search_result = func(self, *args,
+                             **kwargs)  # Вызов оригинальной функции с новыми аргументами и ключевыми словами
         self.db_name = "tasks.db"  # Переключение обратно на основную базу данных
         return search_result if func.__name__ == "search_tasks" else result
+
     return wrapper
 
 
@@ -51,7 +53,7 @@ class BaseManager:
             else:
                 return cursor.fetchone() if one_line else cursor.fetchall()  # Возврат результата
 
-    def get_task(self, task_id=None):
+    def get_task(self, task_id: int | list[int] | None = None):
         """Получает одну или несколько задач из базы данных по заданным ID или все задачи, если ID не указаны."""
         if task_id is None:  # Возвращаем все задачи.
             tasks = self.execute_query('SELECT * FROM tasks', one_line=False)
