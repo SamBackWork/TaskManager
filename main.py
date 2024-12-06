@@ -11,7 +11,6 @@ def main():
         'done': lambda: Co.done_task(),
         'find': lambda: Co.search_task(),
         'exit': lambda: Co.exit_program(),
-        'res': lambda: Co.restart_program()
     }
     print(Co.read_file('help_text'))
     while True:
