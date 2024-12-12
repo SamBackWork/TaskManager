@@ -53,7 +53,7 @@ class BaseManager:
             else:
                 return cursor.fetchone() if one_line else cursor.fetchall()  # Возврат результата
 
-    def get_task(self, task_id: int | list[int] | None = None):
+    def get_task(self, task_id: int | list[int] | None = None) -> Task | None:
         """Получает одну или несколько задач из базы данных по заданным ID или все задачи, если ID не указаны."""
         if task_id is None:  # Возвращаем все задачи.
             tasks = self.execute_query('SELECT * FROM tasks', one_line=False)

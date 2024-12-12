@@ -58,7 +58,23 @@ class TaskManager(BaseManager):
             return "Вы не находитесь в поисковой базе данных"
 
 
+tasks = [
+    Task(task_id=1, title="Написать отчет", description="Написать отчет по проекту до конца недели.",
+         category="Работа", due_date="2023-10-15", priority="Высокий", status="Не выполнена"),
+
+    Task(task_id=2, title="Купить продукты", description="Купить хлеб, молоко, яйца и фрукты.",
+         category="Личные дела", due_date="2023-10-10", priority="Средний", status="Не выполнена"),
+
+    Task(task_id=3, title="Сделать зарядку", description="Уделить 30 минут на утреннюю зарядку.",
+         category="Здоровье", due_date="2023-10-08", priority="Низкий", status="Не выполнена"),
+
+    Task(task_id=4, title="Подготовить презентацию", description="Подготовить презентацию для встреч.",
+         category="Работа", due_date="2023-10-12", priority="Высокий", status="Не выполнена"),
+
+    Task(task_id=5, title="Прочитать книгу", description="Прочитать 50 страниц книги для личного развития.",
+         category="Образование", due_date="2023-10-20", priority="Низкий", status="Не выполнена"),
+]
 if __name__ == '__main__':
     task_manager = TaskManager()
-    result = task_manager.search_tasks(keyword='Работа', category=None, status=None)
-    print(result)
+    for task in tasks:
+        task_manager.add_task(task)

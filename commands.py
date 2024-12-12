@@ -9,6 +9,7 @@ task_manager = TaskManager()
 
 class Commands:
     """Класс для работы с командами."""
+
     @staticmethod
     def create_task_from_input() -> Task:
         """Создает новую задачу из ввода пользователя."""
@@ -43,24 +44,32 @@ class Commands:
     def print_tasks(task_id: int | list | None = None):
         """Выводит информацию о задачах вместе с полями из метаданных."""
         if task_id:
-            tasks = task_manager.get_task(task_id)
+            tasks = task_manager.get_task(task_id)  # Получаем задачу (может вернуть один объект или список)
         else:
-            tasks = task_manager.get_task()
-        for task in [tasks]:
-            field_iter = iter(fields(Task))  # Создаем итератор полей
+            tasks = task_manager.get_task()  # Получаем все задачи
+
+        # Обработка случая с одиночной задачей
+        if isinstance(tasks, Task):  # Если tasks — это одиночный объект Task
+            tasks = [tasks]  # Преобразуем его в список для унифицированной обработки
+
+        # Итерация по каждой задаче в списке
+        for task in tasks:
+            field_iter = iter(fields(Task))
             for field_info in field_iter:
                 field_title = field_info.metadata.get("title", field_info.name)
                 field_value = getattr(task, field_info.name)
+
                 if field_info.name == "description":
-                    print(f"{field_title}: {field_value}")  # Вывод отдельной строки для описания задачи
+                    print(f"{field_title}: {field_value}")
                     continue
-                next_field_info = next(field_iter, None)  # Получаем следующее поле для вывода в одной строке
-                if next_field_info:  # Выводим текущее поле и следующее поле в одной строке
+
+                next_field_info = next(field_iter, None)
+                if next_field_info:
                     next_field_title = next_field_info.metadata.get("title", next_field_info.name)
                     next_field_value = getattr(task, next_field_info.name)
                     print(f"{field_title}: {field_value}    {next_field_title}: {next_field_value}")
                 else:
-                    print(f"{field_title}: {field_value}")  # Если нет следующего поля, выводим только текущее
+                    print(f"{field_title}: {field_value}")
             print("-" * 40)
 
     @staticmethod
@@ -136,3 +145,8 @@ class Commands:
     def read_file(file_path):  # Чтение файла
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
+
+
+if __name__ == '__main__':
+    task_manager = TaskManager()
+    Commands.print_tasks([1, 2, 3])
