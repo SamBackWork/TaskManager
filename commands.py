@@ -90,7 +90,7 @@ class Commands:
             print(f"{index}. {field_info.metadata.get('title', field_info.name)}: ( {getattr(task, field_info.name)} )")
         while True:
             choice = input("Введите номер поля для изменения или 'q' иди 'й' для выхода: ")
-            if choice.lower() in 'qй':
+            if isinstance(choice, str) and choice.lower() in 'qй':
                 break
             else:
                 try:
@@ -117,6 +117,7 @@ class Commands:
         """Обновляет статус задачи в базе данных на 'Выполнена'."""
         task_id = int(input("Введите ID задачи, которую вы хотите выполнить: "))
         task_manager.update_task(task_id, status="Выполнена")
+        print("Задача выполнена!", "-" * 40, sep="\n")
         Commands.print_tasks(task_id)
 
     @staticmethod

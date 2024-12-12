@@ -96,3 +96,7 @@ class BaseManager:
                         status TEXT NOT NULL DEFAULT 'Не выполнена'
                     )'''
         self.execute_query(query, commit=True)
+
+    @sync_with_search_db
+    def cleanup_database(self):
+        self.execute_query('DELETE FROM tasks', commit=True)  # Удалить все задачи из базы данных
