@@ -1,8 +1,6 @@
 import pytest
 import sqlite3
-from datetime import datetime
-from base_utils import Task, BaseManager, sync_with_search_db
-from task_manager import TaskManager
+from task_manager import TaskManager, Task
 from unittest.mock import patch
 
 
@@ -58,15 +56,13 @@ def test_get_task(task_manager, task_data):
     got_tasks = [task_manager.get_task(task_id) for task_id in added_tasks_ids]
     got_tasks_list = task_manager.get_task(added_tasks_ids)
     got_tasks_without_id = task_manager.get_task()
-    with open("log.txt", "w", encoding="utf-8") as file:
-        file.write(str(got_tasks_without_id))
     for test_task, retrieved_task in zip(tasks, got_tasks):
-        assert retrieved_task.title.lower() == test_task.title
-        assert retrieved_task.description.lower() == test_task.description
-        assert retrieved_task.category.lower() == test_task.category
-        assert retrieved_task.due_date.lower() == test_task.due_date
-        assert retrieved_task.priority.lower() == test_task.priority
-        assert retrieved_task.status.lower() == test_task.status
+        assert retrieved_task.title == test_task.title
+        assert retrieved_task.description == test_task.description
+        assert retrieved_task.category == test_task.category
+        assert retrieved_task.due_date == test_task.due_date
+        assert retrieved_task.priority == test_task.priority
+        assert retrieved_task.status == test_task.status
     assert len(tasks) == len(got_tasks_list)
     assert len(tasks) == len(got_tasks)
     assert len(got_tasks_without_id) == len(tasks) + 1
@@ -80,12 +76,12 @@ def test_create_task(task_manager, task_data):
     task_id = task_manager.add_task(task_data)
     task = task_manager.get_task(task_id)
     assert task is not None
-    assert task.title == "Тестовая задача".lower()
-    assert task.description == "Описание задачи для теста".lower()
-    assert task.category == "Тест".lower()
-    assert task.due_date == "15.12.2024".lower()
-    assert task.priority == "Высокий".lower()
-    assert task.status == "Не выполнена".lower()
+    assert task.title == "Тестовая задача"
+    assert task.description == "Описание задачи для теста"
+    assert task.category == "Тест"
+    assert task.due_date == "15.12.2024"
+    assert task.priority == "Высокий"
+    assert task.status == "Не выполнена"
 
 
 def test_update_task(task_manager, task_data):
