@@ -114,7 +114,7 @@ class TaskManager:
                 query += ' WHERE ' + ' AND '.join(query_parts)  # Добавление части запроса
             result_rows = self.execute_query(query, params,
                                              one_line=False)  # Вызов метода execute_query для выполнения запроса
-            print("-" * 40, f"найдено {len(result_rows)} задач", "-" * 40, sep="\n")  # Вывод информации
+            print("-" * 40, f"найдено  задач: {len(result_rows)}", "-" * 40, sep="\n")  # Вывод информации
             res = [row[0] for row in result_rows]
             return res  # Возврат списка ID наеденных задач
         else:
@@ -125,12 +125,13 @@ class TaskManager:
         """Удаляет задачу из базы данных по-заданному ID."""
         name_query = 'SELECT title FROM tasks WHERE id = ?'  # Получить имя задачи для печати информации
         name = self.execute_query(name_query, (task_id,))
-        task_name = name[0] if name else 'Неизвестная задача'
+        task_name = name[0] if name else None  # Если задача существует, то получить имя задачи
         delete_query = 'DELETE FROM tasks WHERE id = ?'
         self.execute_query(delete_query, (task_id,), commit=True)  # Выполнить запрос на удаление задачи
         if self.db_name == "tasks.db":
-            print(f'Задача "{task_name}" с ID {task_id} удалена')  # Вывести информацию о результате
-            return task_id
+            if task_name:  # Если задача существует
+                print(f'Задача "{task_name}" с ID {task_id} удалена')  # Вывести информацию о результате
+                return task_id
 
     @sync_with_search_db
     def _create_table(self):
@@ -202,4 +203,4 @@ tasks = [
 
 if __name__ == '__main__':
     manager = TaskManager()
-    [manager.add_task(task) for task in tasks]
+    print(manager.delete_task(task_id=1000))
