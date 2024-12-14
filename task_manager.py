@@ -1,7 +1,11 @@
 import functools
 import sqlite3
+import logging.config
 from dataclasses import dataclass, field
+from logging import getLogger
 
+logging.config.fileConfig(r'logging\logging.ini')
+logger = getLogger(__name__)
 
 @dataclass
 class Task:
@@ -41,7 +45,7 @@ class TaskManager:
 
     def execute_query(self, query, params=(), commit=False, one_line=True):
         """Упрощает выполнение запросов к базе данных."""
-        with sqlite3.connect(self.db_name) as connection:  # Подключение к поисковой базе данных
+        with sqlite3.connect(self.db_name) as connection:  # Подключение к базе данных
             cursor = connection.cursor()  # Создание курсора
             cursor.execute(query, params)  # Выполнение запроса
             if commit:  # Если нужно выполнить коммит
@@ -71,10 +75,11 @@ class TaskManager:
             return Task(*task_row)
 
     @sync_with_search_db
-    def update_task(self, task_id: int, **kwargs):
+    def update_task(self, task_id: int, **kwargs) -> Task:
         """Обновляет задачу в базе данных на основе переданных ключевых слов аргументов."""
         task = self.get_task(task_id)
         if not task:
+            logger.error("Введён id несуществующей задачи")
             return "Task not found"
         # Формируем части SQL-запроса для обновления и значения параметров
         sql_sets = ", ".join([f"{key} = ?" for key in kwargs.keys()])
@@ -82,15 +87,17 @@ class TaskManager:
         values.append(task_id)
         # Выполнение запроса обновления
         self.execute_query(f"UPDATE tasks SET {sql_sets} WHERE id = ?", values)
+        logger.debug(f"Изменена задача с id {task_id}")
         return self.get_task(task_id)  # Возвращаем обновленное состояние задачи
 
     @sync_with_search_db
-    def add_task(self, task: Task):
+    def add_task(self, task: Task) -> int:
         """Добавляет новую задачу в базу данных и возвращает задачу с присвоенным ID."""
         query = '''INSERT INTO tasks (title, description, category, due_date, priority, status)
                    VALUES (?, ?, ?, ?, ?, ?)'''
         params = (task.title, task.description, task.category, task.due_date, task.priority, task.status)
         task_id = self.execute_query(query, params, commit=True)
+        logger.debug(f"Добавлена задача с id {task_id}")
         return task_id
 
     @sync_with_search_db
@@ -114,14 +121,17 @@ class TaskManager:
                 query += ' WHERE ' + ' AND '.join(query_parts)  # Добавление части запроса
             result_rows = self.execute_query(query, params,
                                              one_line=False)  # Вызов метода execute_query для выполнения запроса
-            print("-" * 40, f"найдено  задач: {len(result_rows)}", "-" * 40, sep="\n")  # Вывод информации
+            print("-" * 60, f"найдено  задач: {len(result_rows)}", "-" * 60, sep="\n")  # Вывод информации
             res = [row[0] for row in result_rows]
+            logger.debug(f"Были найдены задачи с id {res},"
+                         f" поиск: keyword:{keyword}, category:{category} ,status:{status}")
             return res  # Возврат списка ID наеденных задач
         else:
             return "Вы не находитесь в поисковой базе данных"
 
     @sync_with_search_db
     def delete_task(self, task_id: int) -> None | int:
+        logger.info("Delete task")
         """Удаляет задачу из базы данных по-заданному ID."""
         name_query = 'SELECT title FROM tasks WHERE id = ?'  # Получить имя задачи для печати информации
         name = self.execute_query(name_query, (task_id,))
@@ -131,6 +141,7 @@ class TaskManager:
         if self.db_name == "tasks.db":
             if task_name:  # Если задача существует
                 print(f'Задача "{task_name}" с ID {task_id} удалена')  # Вывести информацию о результате
+                logger.debug(f'Задача "{task_name}" с ID {task_id} удалена')
                 return task_id
 
     @sync_with_search_db
@@ -148,8 +159,9 @@ class TaskManager:
         self.execute_query(query, commit=True)
 
     @sync_with_search_db
-    def cleanup_database(self):
+    def cleanup_database(self) -> None:
         self.execute_query('DELETE FROM tasks', commit=True)  # Удалить все задачи из базы данных
+        logger.debug("База отчищена")
 
 
 tasks: list[Task] = [
@@ -200,7 +212,3 @@ tasks: list[Task] = [
          description="Разработать и провести опрос среди клиентов для получения отзывов.", category="Работа",
          due_date="2023-11-05", priority="Высокий", status="Не выполнена")
 ]
-
-if __name__ == '__main__':
-    manager = TaskManager()
-    [manager.add_task(task) for task in tasks   ]

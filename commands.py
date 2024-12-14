@@ -1,12 +1,10 @@
 from datetime import datetime
 from dataclasses import fields
-import logging
 import sys
 
 from task_manager import TaskManager, Task, tasks
 
 task_manager = TaskManager()
-logger = logging.getLogger(__name__)
 
 
 def safe_input(prompt, validation_func=None, error_message="Некорректный ввод", allow_empty=False) -> str | None:
@@ -56,9 +54,8 @@ class Commands:
                 if user_input is None:  # Пользователь выбрал выход
                     return None
                 task_data[field_info.name] = user_input
-
         task = Task(task_id=0, **task_data)
-        print("-" * 40, "Создана новая задача!", "-" * 40, sep="\n")
+        print("-" * 60, "Создана новая задача!", "-" * 60, sep="\n")
         task_id = task_manager.add_task(task)
         Commands.print_tasks(task_id)
 
@@ -66,6 +63,8 @@ class Commands:
     def print_tasks(task_id: int | list | None = None) -> int:
         """Выводит информацию о задачах вместе с полями из метаданных. Возвращает количество задач."""
         tasks = task_manager.get_task(task_id) if task_id else task_manager.get_task()
+        row = 16
+        row2 = 8
         results = len(tasks) if isinstance(tasks, list) else 1
         if isinstance(tasks, Task):
             tasks = [tasks]
@@ -75,16 +74,16 @@ class Commands:
                 field_title = field_info.metadata.get("title", field_info.name)
                 field_value = getattr(task, field_info.name)
                 if field_info.name == "description":
-                    print(f"{field_title}: {field_value}")
+                    print(f"{field_title:>{row}}: {field_value}")
                     continue
                 next_field_info = next(field_iter, None)
                 if next_field_info:
                     next_field_title = next_field_info.metadata.get("title", next_field_info.name)
                     next_field_value = getattr(task, next_field_info.name)
-                    print(f"{field_title}: {field_value}    {next_field_title}: {next_field_value}")
+                    print(f"{field_title:>{row}}: {field_value:<{row2}}{next_field_title:>{row}}: {next_field_value}")
                 else:
-                    print(f"{field_title}: {field_value}")
-            print("-" * 40)
+                    print(f"{field_title:>{row}}: {field_value:}")
+            print("-" * 60)
         print(f"Всего задач: {results}")
         return results
 
@@ -136,9 +135,9 @@ class Commands:
             updates[field_info.name] = new_value
             if updates:
                 task_manager.update_task(task_id, **updates)
-                print("-" * 40, "Задача обновлена!", "-" * 40, sep="\n")
+                print("-" * 60, "Задача обновлена!", "-" * 60, sep="\n")
             else:
-                print("-" * 40, "Изменений не внесено!", "-" * 40, sep="\n")
+                print("-" * 60, "Изменений не внесено!", "-" * 60, sep="\n")
             Commands.print_tasks(task_id)
 
     @staticmethod
@@ -159,7 +158,7 @@ class Commands:
             print(f"Задача с ID {task_id} не найдена.")
             return
         task_manager.update_task(task_id, status="Выполнена")
-        print("-" * 40, "Задача выполнена!", "-" * 40, sep="\n")
+        print("-" * 60, "Задача выполнена!", "-" * 60, sep="\n")
         Commands.print_tasks(task_id)
 
     @staticmethod
