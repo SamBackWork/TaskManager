@@ -1,8 +1,14 @@
 from commands import Commands as Co
 import logging.config
+import atexit
 
 logging.config.fileConfig(r'logging\logging.ini')
 logger = logging.getLogger()
+
+
+@atexit.register
+def cleanup():
+    logger.info("Завершение программы")
 
 
 def main():
@@ -15,8 +21,10 @@ def main():
         'done': lambda: (Co.done_task(), logger.info("команда done выполнена")),
         'find': lambda: (Co.search_task(), logger.info("команда find выполнена")),
         'exit': lambda: Co.exit_program(),
+        'clear': lambda: (Co.clear(), logger.info("команда clear выполнена")),
+        'test': lambda: (Co.test(), logger.info("команда test выполнена")),
     }
-    print(Co.read_file('help_text'))
+    print( '-' * 40, "Добро пожаловать в Task Manager!", '-' * 40, Co.read_file('help_text'), sep='\n')
     while True:
         try:
             action = input(">> ")

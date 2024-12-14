@@ -152,7 +152,7 @@ class TaskManager:
         self.execute_query('DELETE FROM tasks', commit=True)  # Удалить все задачи из базы данных
 
 
-tasks = [
+tasks: list[Task] = [
     Task(task_id=6, title="Посетить врача", description="Записаться и посетить терапевта для ежегодного осмотра.",
          category="Здоровье", due_date="2023-11-01", priority="Средний", status="Не выполнена"),
     Task(task_id=7, title="Оплатить счета", description="Оплатить коммунальные счета за текущий месяц.",
@@ -203,4 +203,4 @@ tasks = [
 
 if __name__ == '__main__':
     manager = TaskManager()
-    print(manager.delete_task(task_id=1000))
+    [manager.add_task(task) for task in tasks   ]

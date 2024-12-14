@@ -1,8 +1,9 @@
-import sys
-from dataclasses import fields
 from datetime import datetime
-from task_manager import TaskManager, Task
+from dataclasses import fields
 import logging
+import sys
+
+from task_manager import TaskManager, Task, tasks
 
 task_manager = TaskManager()
 logger = logging.getLogger(__name__)
@@ -68,7 +69,6 @@ class Commands:
         results = len(tasks) if isinstance(tasks, list) else 1
         if isinstance(tasks, Task):
             tasks = [tasks]
-
         for task in tasks:
             field_iter = iter(fields(Task))
             for field_info in field_iter:
@@ -85,14 +85,12 @@ class Commands:
                 else:
                     print(f"{field_title}: {field_value}")
             print("-" * 40)
-
         print(f"Всего задач: {results}")
         return results
 
     @staticmethod
     def exit_program():
         print("Завершение программы")
-        logger.info("Завершение программы")
         sys.exit(0)
 
     @staticmethod
@@ -219,6 +217,16 @@ class Commands:
         """Чтение файла."""
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
+
+    @staticmethod
+    def clear():
+        task_manager.cleanup_database()
+        print("База данных очищена.")
+
+    @staticmethod
+    def test():
+        [task_manager.add_task(task) for task in tasks]
+        print("База данных заполнена тестовыми задачами. list - список всех задач.")
 
 
 if __name__ == '__main__':
