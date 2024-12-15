@@ -6,7 +6,7 @@ logger = logging.getLogger()
 
 
 # Регистрация функции очистки при завершении программы
-@atexit.register
+@atexit.register # нужно, что бы при выходе записывался лог
 def cleanup():
     logger.info("Завершение программы")
 
@@ -31,8 +31,8 @@ def handle_error(error):
 def main():
     commands = {
         'add': lambda: (Co.create_task_from_input(), logger.info("Команда add выполнена")),
-        'del': lambda: (Co.delete_task(), logger.info("Команда del выполнена")),
-        'list': lambda: (Co.print_tasks(), logger.info("Команда list выполнена")),
+        'del': lambda: (Co.making_a_choice(delete=True), logger.info("Команда del выполнена")),
+        'list': lambda: (Co.making_a_choice(), logger.info("Команда list выполнена")),
         'update': lambda: (Co.update_task_from_input(), logger.info("Команда update выполнена")),
         'help': lambda: (print(Co.read_file('help_text')), logger.info("Команда help выполнена")),
         'done': lambda: (Co.done_task(), logger.info("Команда done выполнена")),

@@ -3,5 +3,9 @@
 
 __pycache__
 
-build
-dist
+\build
+\dist
+promt
+search_tasks.db
+tasks.db
+tmp.py

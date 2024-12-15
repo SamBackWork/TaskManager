@@ -42,7 +42,7 @@ class TaskManager:
         self.is_search_db = is_search_db  # Флаг для определения, является ли база поисковой
         self._create_table()
 
-    def execute_query(self, query, params=(), commit=False, one_line=True):
+    def execute_query(self, query, params=(), commit=False, one_line=True) -> int | list[str]:
         """Упрощает выполнение запросов к базе данных."""
         with sqlite3.connect(self.db_name) as connection:  # Подключение к базе данных
             cursor = connection.cursor()  # Создание курсора
@@ -210,3 +210,6 @@ tasks: list[Task] = [
          description="Разработать и провести опрос среди клиентов для получения отзывов.", category="Работа",
          due_date="2023-11-05", priority="Высокий", status="Не выполнена")
 ]
+if __name__ == '__main__':
+    manager = TaskManager()
+    print(manager.execute_query("SELECT DISTINCT category FROM tasks", one_line=False))
