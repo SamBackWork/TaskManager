@@ -1,9 +1,10 @@
 from datetime import datetime
 from dataclasses import fields
 import sys
-
+from logging import getLogger
 from task_manager import TaskManager, Task, tasks
 
+logger = getLogger(__name__)
 task_manager = TaskManager()
 
 
@@ -63,9 +64,9 @@ class Commands:
     def print_tasks(task_id: int | list | None = None) -> int:
         """Выводит информацию о задачах вместе с полями из метаданных. Возвращает количество задач."""
         tasks = task_manager.get_task(task_id) if task_id else task_manager.get_task()
-        row = 16
-        row2 = 8
-        results = len(tasks) if isinstance(tasks, list) else 1
+        row = 9
+        row2 = 15
+        number_of_taks = len(tasks) if isinstance(tasks, list) else 1
         if isinstance(tasks, Task):
             tasks = [tasks]
         for task in tasks:
@@ -73,19 +74,20 @@ class Commands:
             for field_info in field_iter:
                 field_title = field_info.metadata.get("title", field_info.name)
                 field_value = getattr(task, field_info.name)
-                if field_info.name == "description":
+                if len(str(field_value)) > 15:
                     print(f"{field_title:>{row}}: {field_value}")
                     continue
                 next_field_info = next(field_iter, None)
                 if next_field_info:
                     next_field_title = next_field_info.metadata.get("title", next_field_info.name)
                     next_field_value = getattr(task, next_field_info.name)
-                    print(f"{field_title:>{row}}: {field_value:<{row2}}{next_field_title:>{row}}: {next_field_value}")
+                    print(f"{field_title:>{row}}: {field_value:<{row2}}"
+                          f"{next_field_title:>{row}}: {next_field_value:<{row2}}")
                 else:
-                    print(f"{field_title:>{row}}: {field_value:}")
+                    print(f"{field_title:>{row}}: {field_value:<{row2}}")
             print("-" * 60)
-        print(f"Всего задач: {results}")
-        return results
+        print(f"Всего задач: {number_of_taks}") if number_of_taks != 1 else None
+        return number_of_taks
 
     @staticmethod
     def exit_program():
@@ -115,14 +117,13 @@ class Commands:
             print(f"{index}. {field_info.metadata.get('title', field_info.name)}: ( {getattr(task, field_info.name)} )")
         while True:
             choice = safe_input(
-                "Введите номер поля для изменения: ",
+                "Введите номер поля для изменения или нажмите 'q' или 'й': ",
                 validation_func=lambda x: x.isdigit() and int(x) in fields_dict,
                 error_message=f"Пожалуйста, выберите номер поля"
                               f" от {min(fields_dict.keys())} до {max(fields_dict.keys())}",
                 allow_empty=False
             )
             if choice is None:
-                print("Изменения отменены.")
                 return
             choice = int(choice)
             field_info = fields_dict[choice]
@@ -204,7 +205,7 @@ class Commands:
         if task_id is None:
             print("Операция поиска задач отменена.")
             return
-        if task_id:  # Здесь предполагается поиск и вывод задач
+        if task_id:  # вывод задач
             Commands.print_tasks(task_id)
             return task_id
         else:
@@ -226,7 +227,3 @@ class Commands:
     def test():
         [task_manager.add_task(task) for task in tasks]
         print("База данных заполнена тестовыми задачами. list - список всех задач.")
-
-
-if __name__ == '__main__':
-    Commands.print_tasks([e for e in range(91, 98)])
